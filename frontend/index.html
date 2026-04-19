@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Analysis & Error Detection</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --error-gram: #e74c3c;
+            --error-struct: #f39c12;
+            --bg: #f8f9fa;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        h1 { text-align: center; margin-bottom: 5px; }
+        p.subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
+        
+        .editor-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            border: none;
+            resize: vertical;
+            font-size: 16px;
+            line-height: 1.5;
+            outline: none;
+            box-sizing: border-box;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        .results {
+            display: none; /* Hidden until analysis is done */
+        }
+        
+        .error-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+        }
+        .badge.grammatical { background-color: var(--error-gram); }
+        .badge.structural { background-color: var(--error-struct); }
+        
+        .issue-text { margin: 0; font-size: 15px; }
+        .summary { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: var(--primary); }
+        
+        #loading { display: none; text-align: center; color: var(--accent); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>📝 AI Text Analyzer</h1>
+    <p class="subtitle">Detect Grammatical & Structural Errors instantly.</p>
+
+    <div class="editor-container">
+        <textarea id="textInput" placeholder="Type or paste your text here to check for errors..."></textarea>
+        <div class="controls">
+            <span id="loading">Analyzing...</span>
+            <button id="analyzeBtn" onclick="analyzeText()">Analyze Text</button>
+        </div>
+    </div>
+
+    <div class="results" id="resultsContainer">
+        <div class="summary" id="resultSummary">Found 0 errors</div>
+        <div id="errorList">
+            </div>
+    </div>
+
+    <script>
+        // 🔴 PASTE YOUR LOCALTUNNEL URL HERE (Make sure it ends with /analyze)
+        const API_URL = "https://late-ads-fold.loca.lt/analyze";
+
+        async function analyzeText() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                alert("Please enter some text to analyze.");
+                return;
+            }
+
+            // UI State: Loading
+            document.getElementById('analyzeBtn').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultsContainer').style.display = 'none';
+            const errorList = document.getElementById('errorList');
+            errorList.innerHTML = ''; // Clear old results
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 💡 PRO-TIP: Bypass Localtunnel's security screen for API calls
+                        'Bypass-Tunnel-Reminder': 'true' 
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) throw new Error("Server disconnected");
+
+                const data = await response.json();
+                
+                // UI State: Show Results
+                document.getElementById('resultSummary').innerText = `Found ${data.error_count} error${data.error_count === 1 ? '' : 's'}`;
+                
+                if (data.error_count === 0) {
+                    errorList.innerHTML = `<div class="error-card"><p class="issue-text">✨ Perfect! No errors detected.</p></div>`;
+                } else {
+                    data.details.forEach(error => {
+                        const badgeClass = error.type === 'Grammatical' ? 'grammatical' : 'structural';
+                        const card = `
+                            <div class="error-card">
+                                <span class="badge ${badgeClass}">${error.type}</span>
+                                <p class="issue-text">${error.issue}</p>
+                            </div>
+                        `;
+                        errorList.innerHTML += card;
+                    });
+                }
+                
+                document.getElementById('resultsContainer').style.display = 'block';
+
+            } catch (error) {
+                alert("Failed to connect to the AI. Is your Google Colab server running?");
+                console.error(error);
+            } finally {
+                // UI State: Reset buttons
+                document.getElementById('analyzeBtn').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
